@@ -5,7 +5,9 @@ from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 import matplotlib.pyplot as plt
 
-# cuda is seen and we are using the gpu for the training
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print("Using device:", device)
+
 
 train_transform = transforms.Compose([ #data augmentations before the training
     transforms.RandomHorizontalFlip(p=0.5),
@@ -64,3 +66,70 @@ class FashionCNN(nn.Module):#CNN module
         x = x.view(x.size(0), -1)
         x = self.classifier(x)
         return x
+
+#Setup the model, the loss function, and optimizer 
+
+model = FashionCNN().to(device)
+
+criterion = nn.CrossEntropyLoss()
+optimizer = optim.Adam(model.parameters(), lr=0.001)
+
+#The training starts for 10 epochs
+
+epochs = 10
+
+for epoch in range(epochs):
+    model.train()
+    total_loss = 0
+
+    for images, labels in train_loader:
+        images, labels = images.to(device), labels.to(device)
+
+        optimizer.zero_grad()
+        outputs = model(images)
+        loss = criterion(outputs, labels)
+
+        loss.backward()
+        optimizer.step()
+
+        total_loss += loss.item()
+
+    print(f"Epoch [{epoch+1}/{epochs}], Loss: {total_loss/len(train_loader):.4f}")
+
+#Testing accuracy
+
+model.eval()
+correct = 0
+total = 0
+
+with torch.no_grad():
+    for images, labels in test_loader:
+        images, labels = images.to(device), labels.to(device)
+
+        outputs = model(images)
+        predictions = outputs.argmax(dim=1)
+
+        correct += (predictions == labels).sum().item()
+        total += labels.size(0)
+
+accuracy = 100 * correct / total
+print(f"Test Accuracy: {accuracy:.2f}%")
+
+
+classes = [
+    "T-shirt/top", "Trouser", "Pullover", "Dress", "Coat",
+    "Sandal", "Shirt", "Sneaker", "Bag", "Ankle boot"
+]
+
+image, label = test_dataset[0]
+model.eval()
+
+with torch.no_grad():
+    image_input = image.unsqueeze(0).to(device)
+    output = model(image_input)
+    pred = output.argmax(dim=1).item()
+
+plt.imshow(image.squeeze(), cmap="gray")
+plt.title(f"Prediction: {classes[pred]}")
+plt.axis("off")
+plt.show()
